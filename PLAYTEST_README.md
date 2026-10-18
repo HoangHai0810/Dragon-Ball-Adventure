@@ -1,54 +1,92 @@
-# DRAGON BALL ADVENTURE — Windows Playtest Guide
+# Dragon Ball Adventure — Playtest README
 
-**Version:** Prototype Playable Slice (Build v1.0.0-whitebox)  
-**Target Platform:** Windows x64 Standalone  
-**Executable Path:** `D:\Dragon-Ball-Adventure\Builds\Windows\DragonBallAdventure.exe`  
-**Engine:** Unity 6 LTS `6000.0.85f1`  
-**Date:** 2026-10-18  
+## Quick Start
 
----
-
-## 1. Quick Start
-
-1. Open Windows File Explorer and navigate to:  
-   `D:\Dragon-Ball-Adventure\Builds\Windows`
-2. Double-click **`DragonBallAdventure.exe`**.
-3. The game window will launch in 1280x720 windowed mode.
+1. **Launch:** Double-click `Builds\Windows\DragonBallAdventure.exe`
+2. **Window:** Starts in 1280×720 windowed mode
 
 ---
 
-## 2. Keyboard & Mouse Controls
+## Controls
 
-| Action | Primary Key | Alternative Key | Notes |
-|---|---|---|---|
-| **Move Left / Right** | `A` / `D` | `Left` / `Right` Arrow | Responsive acceleration with instant turnaround |
-| **Jump** | `Space` | `W` / `Up` Arrow | Variable jump height with coyote time |
-| **Dodge / Air Dash** | `Left Shift` | `C` | Invulnerability window; limit 1 air-dash per jump |
-| **Normal Attack (Combo)** | `J` | `Z` | 4-hit melee combo chain with input buffering |
-| **Ki Skill (Beam Blast)** | `K` | `X` | Fires projectile (costs 40 Ki) |
-| **Charge Ki (Energy)** | `L` (Hold) | `V` (Hold) | Stand still to gather Ki (25 Ki/sec) |
-| **Restart Match** | `R` | Click UI Button | Resets Player, Enemy, HP, and Match State instantly |
-| **Virtual On-Screen UI** | Left Mouse Click | Touch Screen | Click virtual joystick and touch action buttons directly |
+### Keyboard
+
+| Action | Keys |
+|--------|------|
+| Move | `A`/`D` or `←`/`→` |
+| Jump | `Space` or `W` |
+| Attack (4-hit combo) | `J` or `Z` or Left Mouse |
+| Skill (Astral Beam) | `K` or `X` or `U` or Right Mouse |
+| Energy Charge | `L` or `C` or `V` (hold) |
+| Dodge (ground) / Air-Dash | `Left Shift` or `Left Ctrl` or `I` |
+| Restart Match | `R` |
+| Pause | `Escape` or `P` |
+
+### Gamepad
+
+| Action | Button |
+|--------|--------|
+| Move | Left Stick |
+| Jump | South (A/X) |
+| Attack | West (X/□) |
+| Skill | North (Y/△) |
+| Charge | Left Shoulder / Trigger |
+| Dodge | East (B/○) |
+| Pause | Start |
+
+### Mobile Touch (iOS/Android)
+
+Virtual joystick (left) + action buttons (right). Buttons auto-hide on desktop.
 
 ---
 
-## 3. What to Test in this Prototype
+## What to Test
 
-1. **Locomotion & Jumping:** Move left and right, jump over platforms, test falling off edges and landing smoothly.
-2. **Air Dash:** Jump into the air and press `Left Shift` to perform an air-dash. Confirm you can only dash once before touching ground again.
-3. **4-Hit Combo:** Press `J` repeatedly to execute the 4-hit attack chain against the Training Dummy (yellow) or the Enemy (red).
-4. **Ki Charging & Beam Skill:** Hold `L` to fill your energy meter to 100. Press `K` to unleash the energy beam projectile.
-5. **Enemy AI & Combat:** Approach the Enemy (red). Observe it detect you, chase, perform melee attacks, and pause for cooldown.
-6. **Victory / Defeat Conditions:**
-   - Deplete Enemy HP (150) to trigger **"VICTORY!"**.
-   - Let Enemy deplete Player HP (100) to trigger **"DEFEAT!"**.
-   - Confirm player combat controls are locked once the round ends.
-7. **Instant Restart:** Press `R` or click "RESTART MATCH (R)" to instantly reset the arena for repeated play without restarting the `.exe`.
+### Movement
+- [x] Walk left/right — smooth and responsive at 8.5 speed
+- [x] Jump — crisp, 13.5 force with variable height (release Space early for short hop)
+- [x] Coyote time — brief grace period when walking off edges
+- [x] Air dash — one mid-air dash per airborne cycle (resets on landing)
+- [x] Ground dodge — invulnerable roll with cooldown
+
+### Combat
+- [x] **4-hit combo** — J/Z for rapid melee chain, each hit produces a blue slash VFX (gold on hit 4)
+- [x] **Attack lunge** — player slides forward with each swing
+- [x] **Astral Beam** — K/X fires a cyan energy projectile that damages the enemy
+- [x] **Energy charge** — Hold L/C/V while grounded, player glows yellow and pulses
+- [x] **Damage numbers** — floating yellow text on each hit
+
+### Enemy Behavior
+- [x] Enemy patrols when player is far away
+- [x] Enemy chases when player enters detection range (10 units)
+- [x] Enemy stops at safe distance (2.2 units) — no more crowding
+- [x] **Attack telegraph** — orange/yellow flash during windup (0.3s)
+- [x] **Attack impact** — enemy lunges forward to strike
+- [x] **Recovery window** — enemy turns grey after attacking (punish opportunity!)
+- [x] Enemy takes knockback from player attacks
+- [x] Enemy HP decreases and is shown on HUD
+
+### Match Flow
+- [x] Defeat enemy → Victory banner appears
+- [x] Player defeated → Defeat banner appears
+- [x] Press R → full match restart (HP, positions, energy all reset)
 
 ---
 
-## 4. Current Limitations (Whitebox Stage)
+## Known Limitations
 
-- **Visuals:** Pure geometric whitebox (Cyan = Player, Red = Enemy, Yellow = Dummy). 2D anime sprite animations for Goku and enemies are planned for upcoming milestones.
-- **Audio:** Completely silent; sound effects and music are pending integration.
-- **Story & Dialogue:** Standalone combat arena testing; Mount Paozu narrative progression is detailed in `docs/TASK_06B_PRODUCT_DIRECTION_AND_PLAYTEST.md`.
+- All characters are placeholder capsules (no sprites/animations yet)
+- Sound effects not implemented
+- Single arena only
+- No save/load or progression
+
+---
+
+## Build Info
+
+| Field | Value |
+|-------|-------|
+| Commit | `1ec742c` |
+| Engine | Unity 6 LTS `6000.0.85f1` |
+| Platform | Windows x64 |
+| Resolution | 1280×720 (windowed) |
