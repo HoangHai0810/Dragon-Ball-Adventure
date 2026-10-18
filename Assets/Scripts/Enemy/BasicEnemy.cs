@@ -41,9 +41,9 @@ namespace AetherSurge.Enemy
         [SerializeField] private float _idleDuration = 1.5f;
 
         [Header("Visual Feedback")]
-        [SerializeField] private SpriteRenderer _spriteRenderer;
+        [SerializeField] private Renderer _renderer;
         [SerializeField] private Color _flashColor = Color.white;
-        [SerializeField] private float _flashDuration = 0.06f;
+        [SerializeField] private float _flashDuration = 0.08f;
 
         private Rigidbody2D _rb;
         private Transform _targetTransform;
@@ -53,7 +53,7 @@ namespace AetherSurge.Enemy
         private int _facingDirection = -1; // -1 = left, +1 = right
         private Vector3 _spawnPosition;
         private bool _hasDealtDamageThisAttack;
-        private Color _originalColor = Color.red;
+        private Color _originalColor = new Color(0.9f, 0.2f, 0.2f);
 
         public EnemyState CurrentState
         {
@@ -103,8 +103,12 @@ namespace AetherSurge.Enemy
         private void Awake()
         {
             _rb = GetComponent<Rigidbody2D>();
-            if (_spriteRenderer == null) _spriteRenderer = GetComponent<SpriteRenderer>();
-            if (_spriteRenderer != null) _originalColor = _spriteRenderer.color;
+            if (_renderer == null) _renderer = GetComponentInChildren<Renderer>();
+            if (_renderer != null)
+            {
+                if (_renderer is SpriteRenderer sr) _originalColor = sr.color;
+                else if (_renderer.sharedMaterial != null) _originalColor = _renderer.sharedMaterial.color;
+            }
 
             _currentHealth = _maxHealth;
             _spawnPosition = transform.position;
@@ -224,7 +228,8 @@ namespace AetherSurge.Enemy
                         _facingDirection = dir >= 0 ? 1 : -1;
                     }
 
-                    if (distToTarget <= _attackRange)
+                    float stopDistance = 2.2f;
+                    if (distToTarget <= stopDistance)
                     {
                         if (_rb != null) _rb.linearVelocity = new Vector2(0f, _rb.linearVelocity.y);
 
@@ -244,16 +249,26 @@ namespace AetherSurge.Enemy
                     break;
 
                 case EnemyState.Attack:
-                    if (_rb != null) _rb.linearVelocity = new Vector2(0f, _rb.linearVelocity.y);
-
                     _stateTimer -= dt;
                     float elapsedInAttack = _attackDuration - _stateTimer;
 
-                    // Trigger discrete hit detection at windup threshold
-                    if (elapsedInAttack >= _attackWindup && !_hasDealtDamageThisAttack)
+                    if (elapsedInAttack < _attackWindup)
                     {
+                        // Telegraph: Flash warm orange/yellow to signal incoming attack!
+                        if (_rb != null) _rb.linearVelocity = new Vector2(0f, _rb.linearVelocity.y);
+                        SetVisualColor(new Color(1f, 0.75f, 0.15f));
+                    }
+                    else if (!_hasDealtDamageThisAttack)
+                    {
+                        // Attack Impact: Lunge forward and strike!
+                        SetVisualColor(new Color(1f, 0.1f, 0.1f));
+                        if (_rb != null) _rb.linearVelocity = new Vector2(_facingDirection * 3.5f, _rb.linearVelocity.y);
                         ExecuteAttackHit();
                         _hasDealtDamageThisAttack = true;
+                    }
+                    else
+                    {
+                        if (_rb != null) _rb.linearVelocity = new Vector2(0f, _rb.linearVelocity.y);
                     }
 
                     if (_stateTimer <= 0f)
@@ -266,10 +281,13 @@ namespace AetherSurge.Enemy
 
                 case EnemyState.Recovery:
                     if (_rb != null) _rb.linearVelocity = new Vector2(0f, _rb.linearVelocity.y);
+                    // Tint darker grey to signal open punish window!
+                    SetVisualColor(new Color(0.45f, 0.45f, 0.5f));
 
                     _stateTimer -= dt;
                     if (_stateTimer <= 0f)
                     {
+                        SetVisualColor(_originalColor);
                         _hasDealtDamageThisAttack = false;
                         if (distToTarget <= _detectionRange)
                         {
@@ -284,6 +302,15 @@ namespace AetherSurge.Enemy
             }
         }
 
+        private void SetVisualColor(Color color)
+        {
+            if (_renderer != null)
+            {
+                if (_renderer is SpriteRenderer sr) sr.color = color;
+                else if (_renderer.material != null) _renderer.material.color = color;
+            }
+        }
+
         private void ExecuteAttackHit()
         {
             Vector2 origin = (Vector2)transform.position + new Vector2(_attackHitboxOffset.x * _facingDirection, _attackHitboxOffset.y);
@@ -293,7 +320,7 @@ namespace AetherSurge.Enemy
             {
                 if (hit.gameObject == gameObject) continue;
 
-                IHurtbox hurtbox = hit.GetComponent<IHurtbox>();
+                IHurtbox hurtbox = hit.GetComponent<IHurtbox>() ?? hit.GetComponentInParent<IHurtbox>();
                 if (hurtbox != null)
                 {
                     Vector2 knockback = new Vector2(_attackKnockback.x * _facingDirection, _attackKnockback.y);
@@ -318,11 +345,8 @@ namespace AetherSurge.Enemy
                 _rb.AddForce(context.Knockback, ForceMode2D.Impulse);
             }
 
-            if (_spriteRenderer != null)
-            {
-                StopAllCoroutines();
-                StartCoroutine(DoFlash());
-            }
+            StopAllCoroutines();
+            StartCoroutine(DoFlash());
 
             SpawnDamageText(context.Damage, transform.position + new Vector3(0, 1.2f, 0));
 
@@ -348,10 +372,17 @@ namespace AetherSurge.Enemy
             {
                 case EnemyState.Idle:
                     _stateTimer = _idleDuration;
+                    SetVisualColor(_originalColor);
                     break;
                 case EnemyState.Attack:
                     _stateTimer = _attackDuration;
                     _hasDealtDamageThisAttack = false;
+                    break;
+                case EnemyState.Chase:
+                    SetVisualColor(_originalColor);
+                    break;
+                case EnemyState.Defeated:
+                    SetVisualColor(new Color(0.3f, 0.3f, 0.3f, 0.5f));
                     break;
             }
 
@@ -360,9 +391,9 @@ namespace AetherSurge.Enemy
 
         private IEnumerator DoFlash()
         {
-            _spriteRenderer.color = _flashColor;
-            yield return new WaitForSecondsRealtime(_flashDuration);
-            _spriteRenderer.color = _originalColor;
+            SetVisualColor(_flashColor);
+            yield return new WaitForSeconds(0.08f);
+            SetVisualColor(_currentState == EnemyState.Recovery ? new Color(0.45f, 0.45f, 0.5f) : _originalColor);
         }
 
         private void SpawnDamageText(int damage, Vector3 position)
@@ -388,7 +419,7 @@ namespace AetherSurge.Enemy
             transform.position = _spawnPosition;
 
             if (_rb != null) _rb.linearVelocity = Vector2.zero;
-            if (_spriteRenderer != null) _spriteRenderer.color = _originalColor;
+            SetVisualColor(_originalColor);
 
             if (OnHealthChanged != null) OnHealthChanged.Invoke(_currentHealth, _maxHealth);
         }

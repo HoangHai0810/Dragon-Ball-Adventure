@@ -28,11 +28,12 @@ namespace AetherSurge.Combat
         {
             if (_owner != null && (collision.gameObject == _owner || collision.transform.IsChildOf(_owner.transform))) return;
 
-            IHurtbox hurtbox = collision.GetComponent<IHurtbox>();
+            IHurtbox hurtbox = collision.GetComponent<IHurtbox>() ?? collision.GetComponentInParent<IHurtbox>();
             if (hurtbox != null)
             {
                 DamageContext ctx = new DamageContext(_damage, new Vector2(_direction.x * _knockback.x, _knockback.y), 0.08f, true, _owner);
                 hurtbox.TakeDamage(ctx);
+                SpawnImpactBurst(transform.position);
                 Destroy(gameObject);
                 return;
             }
@@ -40,8 +41,24 @@ namespace AetherSurge.Combat
             // Destroy upon impacting solid environment / arena boundaries
             if (collision.gameObject.layer == 8)
             {
+                SpawnImpactBurst(transform.position);
                 Destroy(gameObject);
             }
+        }
+
+        private void SpawnImpactBurst(Vector3 pos)
+        {
+            var burst = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            burst.name = "BeamImpact_Burst";
+            burst.transform.position = pos;
+            burst.transform.localScale = new Vector3(1.4f, 1.4f, 1f);
+            DestroyImmediate(burst.GetComponent<Collider>());
+            var mr = burst.GetComponent<MeshRenderer>();
+            if (mr != null)
+            {
+                mr.material.color = new Color(1f, 0.95f, 0.3f, 0.95f);
+            }
+            Destroy(burst, 0.1f);
         }
     }
 }

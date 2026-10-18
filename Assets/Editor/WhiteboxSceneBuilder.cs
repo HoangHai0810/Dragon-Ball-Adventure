@@ -101,7 +101,7 @@ namespace AetherSurge.Editor
             var enemyRb = enemyObj.AddComponent<Rigidbody2D>();
             enemyRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             enemyRb.freezeRotation = true;
-            enemyRb.mass = 2.5f;
+            enemyRb.mass = 1.4f;
 
             var enemyCol = enemyObj.AddComponent<BoxCollider2D>();
             enemyCol.size = new Vector2(1.2f, 2.0f);
@@ -158,8 +158,8 @@ namespace AetherSurge.Editor
             playerObj.AddComponent<EnergyController>();
             var playerChar = playerObj.AddComponent<PlayerCharacter>();
 
-            // Set target layer mask to Enemy layer only (no self-hit, no ground hit)
-            playerChar.TargetLayer = 1 << LAYER_ENEMY;
+            // Set target layer mask to Enemy layer (7) and Default (0)
+            playerChar.TargetLayer = (1 << LAYER_ENEMY) | (1 << 0);
 
             // Input services
             var standaloneInput = playerObj.AddComponent<StandaloneInputService>();

@@ -67,11 +67,11 @@ namespace AetherSurge.Core
             get
             {
 #if ENABLE_INPUT_SYSTEM
-                bool key = Keyboard.current != null && (Keyboard.current.leftShiftKey.wasPressedThisFrame || Keyboard.current.kKey.wasPressedThisFrame);
+                bool key = Keyboard.current != null && (Keyboard.current.leftShiftKey.wasPressedThisFrame || Keyboard.current.leftCtrlKey.wasPressedThisFrame || Keyboard.current.iKey.wasPressedThisFrame);
                 bool pad = Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame;
                 return key || pad;
 #else
-                return Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.K);
+                return Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.I);
 #endif
             }
         }
@@ -81,12 +81,12 @@ namespace AetherSurge.Core
             get
             {
 #if ENABLE_INPUT_SYSTEM
-                bool key = Keyboard.current != null && Keyboard.current.jKey.wasPressedThisFrame;
+                bool key = Keyboard.current != null && (Keyboard.current.jKey.wasPressedThisFrame || Keyboard.current.zKey.wasPressedThisFrame);
                 bool mouse = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
                 bool pad = Gamepad.current != null && Gamepad.current.buttonWest.wasPressedThisFrame;
                 return key || mouse || pad;
 #else
-                return Input.GetKeyDown(KeyCode.J) || Input.GetMouseButtonDown(0);
+                return Input.GetKeyDown(KeyCode.J) || Input.GetKeyDown(KeyCode.Z) || Input.GetMouseButtonDown(0);
 #endif
             }
         }
@@ -96,12 +96,12 @@ namespace AetherSurge.Core
             get
             {
 #if ENABLE_INPUT_SYSTEM
-                bool key = Keyboard.current != null && Keyboard.current.uKey.wasPressedThisFrame;
+                bool key = Keyboard.current != null && (Keyboard.current.kKey.wasPressedThisFrame || Keyboard.current.xKey.wasPressedThisFrame || Keyboard.current.uKey.wasPressedThisFrame);
                 bool mouse = Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
                 bool pad = Gamepad.current != null && Gamepad.current.buttonNorth.wasPressedThisFrame;
                 return key || mouse || pad;
 #else
-                return Input.GetKeyDown(KeyCode.U) || Input.GetMouseButtonDown(1);
+                return Input.GetKeyDown(KeyCode.K) || Input.GetKeyDown(KeyCode.X) || Input.GetKeyDown(KeyCode.U) || Input.GetMouseButtonDown(1);
 #endif
             }
         }
@@ -111,11 +111,11 @@ namespace AetherSurge.Core
             get
             {
 #if ENABLE_INPUT_SYSTEM
-                bool key = Keyboard.current != null && Keyboard.current.cKey.isPressed;
-                bool pad = Gamepad.current != null && Gamepad.current.leftShoulder.isPressed;
+                bool key = Keyboard.current != null && (Keyboard.current.lKey.isPressed || Keyboard.current.cKey.isPressed || Keyboard.current.vKey.isPressed);
+                bool pad = Gamepad.current != null && (Gamepad.current.leftShoulder.isPressed || Gamepad.current.leftTrigger.isPressed);
                 return key || pad;
 #else
-                return Input.GetKey(KeyCode.C);
+                return Input.GetKey(KeyCode.L) || Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.V);
 #endif
             }
         }

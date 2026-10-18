@@ -7,8 +7,8 @@ namespace AetherSurge.Player
     public class PlayerLocomotion : MonoBehaviour
     {
         [Header("Movement Settings")]
-        [SerializeField] private float _moveSpeed = 7.5f;
-        [SerializeField] private float _jumpForce = 12.5f;
+        [SerializeField] private float _moveSpeed = 8.5f;
+        [SerializeField] private float _jumpForce = 13.5f;
         [SerializeField] private float _dashSpeed = 16f;
         [SerializeField] private float _dashDuration = 0.25f;
         [SerializeField] private float _dodgeDuration = 0.40f;
@@ -186,6 +186,14 @@ namespace AetherSurge.Player
             {
                 _facingDirection = -1;
                 transform.localScale = new Vector3(-1f, 1f, 1f);
+            }
+        }
+
+        public void ApplyAttackLunge(float speed)
+        {
+            if (_rb != null && _isGrounded && !_isDodging && !_isDashing)
+            {
+                _rb.linearVelocity = new Vector2(_facingDirection * speed, _rb.linearVelocity.y);
             }
         }
 
