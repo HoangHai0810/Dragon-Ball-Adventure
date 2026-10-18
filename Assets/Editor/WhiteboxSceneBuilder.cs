@@ -10,6 +10,7 @@ using AetherSurge.Player;
 using AetherSurge.Combat;
 using AetherSurge.Dummy;
 using AetherSurge.UI;
+using AetherSurge.Enemy;
 
 namespace AetherSurge.Editor
 {
@@ -92,33 +93,37 @@ namespace AetherSurge.Editor
             Object.DestroyImmediate(rightWall.GetComponent<BoxCollider>());
             rightWall.AddComponent<BoxCollider2D>();
 
-            // 6. Training Dummy (on Enemy layer)
-            var dummyObj = new GameObject("TrainingDummy");
-            dummyObj.layer = LAYER_ENEMY;
-            dummyObj.transform.position = new Vector3(3.5f, 1f, 0f);
+            // 6. Basic Enemy (Rogue Astral Construct on Enemy layer)
+            var enemyObj = new GameObject("BasicEnemy");
+            enemyObj.layer = LAYER_ENEMY;
+            enemyObj.transform.position = new Vector3(4.5f, 1f, 0f);
 
-            var dummyRb = dummyObj.AddComponent<Rigidbody2D>();
-            dummyRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
-            dummyRb.freezeRotation = true;
-            dummyRb.mass = 2.0f;
+            var enemyRb = enemyObj.AddComponent<Rigidbody2D>();
+            enemyRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            enemyRb.freezeRotation = true;
+            enemyRb.mass = 2.5f;
 
-            var dummyCol = dummyObj.AddComponent<BoxCollider2D>();
-            dummyCol.size = new Vector2(1.2f, 2.0f);
+            var enemyCol = enemyObj.AddComponent<BoxCollider2D>();
+            enemyCol.size = new Vector2(1.2f, 2.0f);
 
-            var dummyVisual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            dummyVisual.name = "Visual";
-            dummyVisual.layer = LAYER_ENEMY;
-            dummyVisual.transform.SetParent(dummyObj.transform);
-            dummyVisual.transform.localPosition = Vector3.zero;
-            dummyVisual.transform.localScale = new Vector3(1.2f, 1.0f, 1.0f);
-            Object.DestroyImmediate(dummyVisual.GetComponent<Collider>());
-            var dummyMat = dummyVisual.GetComponent<MeshRenderer>();
-            if (dummyMat != null && dummyMat.sharedMaterial != null)
+            var enemyVisual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            enemyVisual.name = "Visual";
+            enemyVisual.layer = LAYER_ENEMY;
+            enemyVisual.transform.SetParent(enemyObj.transform);
+            enemyVisual.transform.localPosition = Vector3.zero;
+            enemyVisual.transform.localScale = new Vector3(1.2f, 1.0f, 1.0f);
+            Object.DestroyImmediate(enemyVisual.GetComponent<Collider>());
+            var enemyMat = enemyVisual.GetComponent<MeshRenderer>();
+            if (enemyMat != null && enemyMat.sharedMaterial != null)
             {
-                dummyMat.sharedMaterial.color = new Color(0.85f, 0.25f, 0.25f);
+                enemyMat.sharedMaterial.color = new Color(0.9f, 0.2f, 0.2f);
             }
 
-            var dummyComp = dummyObj.AddComponent<TrainingDummy>();
+            var enemyComp = enemyObj.AddComponent<BasicEnemy>();
+
+            // Backwards-compatible dummy reference
+            var dummyObj = enemyObj;
+            var dummyComp = enemyComp;
 
             // 7. Player (on Player layer)
             var playerObj = new GameObject("Player");
@@ -162,6 +167,13 @@ namespace AetherSurge.Editor
             var compositeInput = playerObj.AddComponent<CompositeInputService>();
             compositeInput.Initialize(standaloneInput, mobileInput);
             playerChar.SetInputService(compositeInput);
+
+            // Match Manager
+            var matchObj = new GameObject("MatchManager");
+            var matchManager = matchObj.AddComponent<MatchManager>();
+            matchManager.Player = playerChar;
+            matchManager.Enemy = enemyComp;
+            matchManager.PlayerSpawnPoint = new Vector3(-3.0f, 1.0f, 0f);
 
             // Camera follows player
             cameraFollow.SetTarget(playerObj.transform);
@@ -229,23 +241,37 @@ namespace AetherSurge.Editor
 
             mobileControlsUI.BindControls(mobileInput, virtualJoystick, atkBtn, jumpBtn, dashBtn, skillBtn, chargeBtn);
 
-            // Top HUD: Reset button
+            // Top Objective Text
+            var objectiveObj = new GameObject("Text_Objective");
+            objectiveObj.transform.SetParent(safeAreaObj.transform, false);
+            var objRect = objectiveObj.AddComponent<RectTransform>();
+            objRect.anchorMin = new Vector2(0.5f, 1f);
+            objRect.anchorMax = new Vector2(0.5f, 1f);
+            objRect.anchoredPosition = new Vector2(0f, -25f);
+            objRect.sizeDelta = new Vector2(650f, 40f);
+            var objText = objectiveObj.AddComponent<TextMeshProUGUI>();
+            objText.text = "OBJECTIVE: Defeat the Rogue Astral Construct";
+            objText.fontSize = 22;
+            objText.alignment = TextAlignmentOptions.Center;
+            objText.color = new Color(0.9f, 0.9f, 0.95f, 0.9f);
+
+            // Top HUD: Restart button
             var resetBtnObj = new GameObject("Btn_ResetArena");
             resetBtnObj.transform.SetParent(safeAreaObj.transform, false);
             var resetRect = resetBtnObj.AddComponent<RectTransform>();
             resetRect.anchorMin = new Vector2(0.5f, 1f);
             resetRect.anchorMax = new Vector2(0.5f, 1f);
-            resetRect.anchoredPosition = new Vector2(0f, -80f);
-            resetRect.sizeDelta = new Vector2(220f, 60f);
+            resetRect.anchoredPosition = new Vector2(0f, -75f);
+            resetRect.sizeDelta = new Vector2(240f, 50f);
             var resetImg = resetBtnObj.AddComponent<Image>();
-            resetImg.color = new Color(0.3f, 0.3f, 0.35f, 0.85f);
+            resetImg.color = new Color(0.25f, 0.25f, 0.32f, 0.9f);
             var resetBtn = resetBtnObj.AddComponent<Button>();
 
             var resetTextObj = new GameObject("Text");
             resetTextObj.transform.SetParent(resetBtnObj.transform, false);
             var resetText = resetTextObj.AddComponent<TextMeshProUGUI>();
-            resetText.text = "RESET ARENA";
-            resetText.fontSize = 26;
+            resetText.text = "RESTART MATCH (R)";
+            resetText.fontSize = 22;
             resetText.alignment = TextAlignmentOptions.Center;
             resetText.color = Color.white;
             var resetTextRect = resetTextObj.GetComponent<RectTransform>();
@@ -254,50 +280,90 @@ namespace AetherSurge.Editor
             resetTextRect.offsetMin = Vector2.zero;
             resetTextRect.offsetMax = Vector2.zero;
 
-            // Player Energy Display (Top Left)
+            // Player HP Display (Top Left)
+            var playerHpObj = new GameObject("Text_PlayerHP");
+            playerHpObj.transform.SetParent(safeAreaObj.transform, false);
+            var playerHpRect = playerHpObj.AddComponent<RectTransform>();
+            playerHpRect.anchorMin = new Vector2(0f, 1f);
+            playerHpRect.anchorMax = new Vector2(0f, 1f);
+            playerHpRect.anchoredPosition = new Vector2(160f, -40f);
+            playerHpRect.sizeDelta = new Vector2(260f, 40f);
+            var playerHpText = playerHpObj.AddComponent<TextMeshProUGUI>();
+            playerHpText.text = "Player HP: 200 / 200";
+            playerHpText.fontSize = 24;
+            playerHpText.alignment = TextAlignmentOptions.Left;
+            playerHpText.color = new Color(0.3f, 0.9f, 0.4f);
+
+            // Player Energy Display (Top Left, below HP)
             var energyObj = new GameObject("Text_Energy");
             energyObj.transform.SetParent(safeAreaObj.transform, false);
             var energyRect = energyObj.AddComponent<RectTransform>();
             energyRect.anchorMin = new Vector2(0f, 1f);
             energyRect.anchorMax = new Vector2(0f, 1f);
-            energyRect.anchoredPosition = new Vector2(160f, -60f);
-            energyRect.sizeDelta = new Vector2(260f, 50f);
+            energyRect.anchoredPosition = new Vector2(160f, -75f);
+            energyRect.sizeDelta = new Vector2(260f, 40f);
             var energyText = energyObj.AddComponent<TextMeshProUGUI>();
             energyText.text = "Energy: 50 / 100";
-            energyText.fontSize = 26;
+            energyText.fontSize = 22;
             energyText.alignment = TextAlignmentOptions.Left;
             energyText.color = new Color(0.2f, 0.85f, 1.0f);
 
-            // Dummy HP Display (Top Right, next to FPS)
-            var dummyHpObj = new GameObject("Text_DummyHP");
-            dummyHpObj.transform.SetParent(safeAreaObj.transform, false);
-            var dummyHpRect = dummyHpObj.AddComponent<RectTransform>();
-            dummyHpRect.anchorMin = new Vector2(1f, 1f);
-            dummyHpRect.anchorMax = new Vector2(1f, 1f);
-            dummyHpRect.anchoredPosition = new Vector2(-360f, -60f);
-            dummyHpRect.sizeDelta = new Vector2(280f, 50f);
-            var dummyHpText = dummyHpObj.AddComponent<TextMeshProUGUI>();
-            dummyHpText.text = "Dummy HP: 500 / 500";
-            dummyHpText.fontSize = 26;
-            dummyHpText.alignment = TextAlignmentOptions.Right;
-            dummyHpText.color = new Color(1.0f, 0.85f, 0.2f);
+            // Enemy HP Display (Top Right)
+            var enemyHpObj = new GameObject("Text_EnemyHP");
+            enemyHpObj.transform.SetParent(safeAreaObj.transform, false);
+            var enemyHpRect = enemyHpObj.AddComponent<RectTransform>();
+            enemyHpRect.anchorMin = new Vector2(1f, 1f);
+            enemyHpRect.anchorMax = new Vector2(1f, 1f);
+            enemyHpRect.anchoredPosition = new Vector2(-360f, -40f);
+            enemyHpRect.sizeDelta = new Vector2(280f, 40f);
+            var enemyHpText = enemyHpObj.AddComponent<TextMeshProUGUI>();
+            enemyHpText.text = "Enemy HP: 250 / 250";
+            enemyHpText.fontSize = 24;
+            enemyHpText.alignment = TextAlignmentOptions.Right;
+            enemyHpText.color = new Color(1.0f, 0.4f, 0.35f);
 
-            // FPS Counter (Top Right)
+            // FPS Counter (Top Right, below Enemy HP)
             var fpsObj = new GameObject("Text_FPS");
             fpsObj.transform.SetParent(safeAreaObj.transform, false);
             var fpsRect = fpsObj.AddComponent<RectTransform>();
             fpsRect.anchorMin = new Vector2(1f, 1f);
             fpsRect.anchorMax = new Vector2(1f, 1f);
-            fpsRect.anchoredPosition = new Vector2(-100f, -60f);
-            fpsRect.sizeDelta = new Vector2(160f, 50f);
+            fpsRect.anchoredPosition = new Vector2(-100f, -40f);
+            fpsRect.sizeDelta = new Vector2(160f, 40f);
             var fpsText = fpsObj.AddComponent<TextMeshProUGUI>();
             fpsText.text = "FPS: --";
-            fpsText.fontSize = 26;
+            fpsText.fontSize = 22;
             fpsText.alignment = TextAlignmentOptions.Right;
             fpsText.color = Color.green;
 
+            // Outcome Banner (Centered Modal / Banner)
+            var bannerRootObj = new GameObject("OutcomeBannerRoot");
+            bannerRootObj.transform.SetParent(safeAreaObj.transform, false);
+            var bannerRootRect = bannerRootObj.AddComponent<RectTransform>();
+            bannerRootRect.anchorMin = new Vector2(0.5f, 0.5f);
+            bannerRootRect.anchorMax = new Vector2(0.5f, 0.5f);
+            bannerRootRect.anchoredPosition = new Vector2(0f, 50f);
+            bannerRootRect.sizeDelta = new Vector2(600f, 220f);
+            var bannerBg = bannerRootObj.AddComponent<Image>();
+            bannerBg.color = new Color(0.08f, 0.08f, 0.12f, 0.92f);
+
+            var bannerTextObj = new GameObject("Text_OutcomeBanner");
+            bannerTextObj.transform.SetParent(bannerRootObj.transform, false);
+            var bannerTextRect = bannerTextObj.AddComponent<RectTransform>();
+            bannerTextRect.anchorMin = Vector2.zero;
+            bannerTextRect.anchorMax = Vector2.one;
+            bannerTextRect.offsetMin = new Vector2(20f, 20f);
+            bannerTextRect.offsetMax = new Vector2(-20f, -20f);
+            var bannerText = bannerTextObj.AddComponent<TextMeshProUGUI>();
+            bannerText.text = "VICTORY!";
+            bannerText.fontSize = 36;
+            bannerText.alignment = TextAlignmentOptions.Center;
+            bannerText.color = Color.yellow;
+
+            bannerRootObj.SetActive(false); // Initially hidden
+
             // Wire HUD
-            hudComp.BindControls(resetBtn, fpsText, energyText, dummyHpText);
+            hudComp.BindControls(resetBtn, fpsText, energyText, enemyHpText, playerHpText, objText, bannerText, bannerRootObj);
 
             // Save Scene
             if (!AssetDatabase.IsValidFolder("Assets/Scenes"))

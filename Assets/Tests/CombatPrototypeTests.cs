@@ -7,6 +7,7 @@ using AetherSurge.Player;
 using AetherSurge.Combat;
 using AetherSurge.Dummy;
 using AetherSurge.UI;
+using AetherSurge.Enemy;
 
 namespace AetherSurge.Tests
 {
@@ -525,6 +526,262 @@ namespace AetherSurge.Tests
             Assert.IsFalse(canvasGroup.interactable, "CanvasGroup must not be interactable when hidden.");
 
             Object.DestroyImmediate(uiRoot);
+        }
+
+        /// <summary>
+        /// TEST-19-ENEMY-STATE-TRANSITIONS: BasicEnemy transitions from Idle to Chase when player is in detection range,
+        /// and from Chase to Attack when in attack range.
+        /// </summary>
+        [Test]
+        public void TEST_19_ENEMY_STATE_TRANSITIONS()
+        {
+            var enemyObj = new GameObject("TestEnemy");
+            enemyObj.AddComponent<Rigidbody2D>();
+            enemyObj.AddComponent<BoxCollider2D>();
+            var enemy = enemyObj.AddComponent<BasicEnemy>();
+
+            // Target far away (20m): state remains Idle
+            _playerObject.transform.position = new Vector3(20f, 0f, 0f);
+            enemy.SetTarget(_playerObject.transform);
+            enemy.UpdateState(0.1f);
+            Assert.AreEqual(EnemyState.Idle, enemy.CurrentState, "Enemy should remain Idle when player is far away.");
+
+            // Target within detection range (5m): state transitions to Chase
+            _playerObject.transform.position = new Vector3(5f, 0f, 0f);
+            enemy.UpdateState(0.1f);
+            Assert.AreEqual(EnemyState.Chase, enemy.CurrentState, "Enemy should transition to Chase when player enters detection range.");
+
+            // Target within attack range (1.2m): state transitions to Attack
+            _playerObject.transform.position = new Vector3(1.2f, 0f, 0f);
+            enemy.UpdateState(0.1f);
+            Assert.AreEqual(EnemyState.Attack, enemy.CurrentState, "Enemy should transition to Attack when player is within attack range.");
+
+            Object.DestroyImmediate(enemyObj);
+        }
+
+        /// <summary>
+        /// TEST-20-ENEMY-ATTACK-COOLDOWN-AND-DISCRETE-DAMAGE: Enemy attack damages player only once per attack cycle
+        /// and enters cooldown, not repeatedly dealing damage every frame.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TEST_20_ENEMY_ATTACK_COOLDOWN_AND_DISCRETE_DAMAGE()
+        {
+            _playerObject.layer = 6; // Player layer
+            _playerObject.transform.position = Vector3.zero;
+            var playerCol = _playerObject.AddComponent<BoxCollider2D>();
+            playerCol.size = new Vector2(1f, 1.8f);
+
+            var enemyObj = new GameObject("TestEnemy");
+            enemyObj.layer = 7; // Enemy layer
+            enemyObj.transform.position = new Vector3(1.0f, 0f, 0f);
+            enemyObj.AddComponent<Rigidbody2D>();
+            var enemyCol = enemyObj.AddComponent<BoxCollider2D>();
+            enemyCol.size = new Vector2(1.2f, 2.0f);
+            var enemy = enemyObj.AddComponent<BasicEnemy>();
+            enemy.SetTarget(_playerObject.transform);
+
+            Physics2D.SyncTransforms();
+
+            int initialPlayerHp = _player.CurrentHealth;
+
+            // Trigger attack
+            enemy.ForceState(EnemyState.Attack);
+
+            // Step through windup and hit window
+            enemy.UpdateState(0.35f);
+            Physics2D.SyncTransforms();
+
+            int hpAfterFirstHit = _player.CurrentHealth;
+            Assert.Less(hpAfterFirstHit, initialPlayerHp, "Player must take damage during attack active frame.");
+
+            // Continue stepping through attack duration
+            enemy.UpdateState(0.1f);
+            enemy.UpdateState(0.1f);
+
+            Assert.AreEqual(hpAfterFirstHit, _player.CurrentHealth, "Enemy must NOT deal repeated damage on subsequent frames of the same attack.");
+
+            // Verify transition to Recovery and cooldown is active
+            Assert.AreEqual(EnemyState.Recovery, enemy.CurrentState, "Enemy should transition to Recovery after attack.");
+            Assert.Greater(enemy.CooldownTimer, 0f, "Cooldown timer must be active.");
+
+            Object.DestroyImmediate(enemyObj);
+            yield return null;
+        }
+
+        /// <summary>
+        /// TEST-21-ENEMY-DEFEAT: When enemy health reaches 0, it enters Defeated state, stops moving, and is invulnerable.
+        /// </summary>
+        [Test]
+        public void TEST_21_ENEMY_DEFEAT()
+        {
+            var enemyObj = new GameObject("TestEnemy");
+            var rb = enemyObj.AddComponent<Rigidbody2D>();
+            enemyObj.AddComponent<BoxCollider2D>();
+            var enemy = enemyObj.AddComponent<BasicEnemy>();
+
+            bool defeatedFired = false;
+            enemy.OnDefeated += () => defeatedFired = true;
+
+            // Deal lethal damage
+            enemy.TakeDamage(new DamageContext(300, Vector2.right, 0.05f, false, _playerObject));
+
+            Assert.AreEqual(0, enemy.CurrentHealth, "Enemy health should be 0.");
+            Assert.AreEqual(EnemyState.Defeated, enemy.CurrentState, "Enemy state should be Defeated.");
+            Assert.IsTrue(enemy.IsDefeated, "IsDefeated flag should be true.");
+            Assert.IsTrue(defeatedFired, "OnDefeated event must fire.");
+            Assert.AreEqual(Vector2.zero, rb.linearVelocity, "Velocity must stop when defeated.");
+
+            // Subsequent damage should be rejected
+            bool extraHit = enemy.TakeDamage(new DamageContext(50, Vector2.right, 0.05f, false, _playerObject));
+            Assert.IsFalse(extraHit, "Defeated enemy should reject further damage.");
+
+            Object.DestroyImmediate(enemyObj);
+        }
+
+        /// <summary>
+        /// TEST-22-PLAYER-DEFEAT: When player health reaches 0, IsDefeated becomes true and OnDefeated event fires.
+        /// </summary>
+        [Test]
+        public void TEST_22_PLAYER_DEFEAT()
+        {
+            bool playerDefeatedFired = false;
+            _player.OnDefeated += () => playerDefeatedFired = true;
+
+            // Deal lethal damage to player
+            _player.TakeDamage(new DamageContext(_player.MaxHealth + 50, Vector2.left, 0.05f, false, null));
+
+            Assert.AreEqual(0, _player.CurrentHealth, "Player health must be 0.");
+            Assert.IsTrue(_player.IsDefeated, "Player IsDefeated must be true.");
+            Assert.IsTrue(playerDefeatedFired, "OnDefeated event must fire.");
+
+            // Subsequent damage rejected
+            bool extraDamage = _player.TakeDamage(new DamageContext(50, Vector2.left, 0.05f, false, null));
+            Assert.IsFalse(extraDamage, "Defeated player must reject further damage.");
+        }
+
+        /// <summary>
+        /// TEST-23-WIN-CONDITION: Defeating the enemy sets MatchManager state to Victory and disables combat input.
+        /// </summary>
+        [Test]
+        public void TEST_23_WIN_CONDITION()
+        {
+            var matchObj = new GameObject("TestMatch");
+            var match = matchObj.AddComponent<MatchManager>();
+
+            var enemyObj = new GameObject("TestEnemy");
+            enemyObj.AddComponent<Rigidbody2D>();
+            enemyObj.AddComponent<BoxCollider2D>();
+            var enemy = enemyObj.AddComponent<BasicEnemy>();
+
+            match.Player = _player;
+            match.Enemy = enemy;
+            match.SubscribeEvents();
+
+            Assert.AreEqual(MatchState.InProgress, match.CurrentMatchState, "Match starts InProgress.");
+
+            // Defeat enemy
+            enemy.TakeDamage(new DamageContext(500, Vector2.right, 0.05f, false, _playerObject));
+
+            Assert.AreEqual(MatchState.Victory, match.CurrentMatchState, "Defeating enemy must transition match to Victory.");
+            Assert.IsFalse(_player.IsInputEnabled, "Player input must be disabled upon victory.");
+
+            Object.DestroyImmediate(matchObj);
+            Object.DestroyImmediate(enemyObj);
+        }
+
+        /// <summary>
+        /// TEST-24-LOSE-CONDITION: Player defeat sets MatchManager state to Defeat and disables combat input.
+        /// </summary>
+        [Test]
+        public void TEST_24_LOSE_CONDITION()
+        {
+            var matchObj = new GameObject("TestMatch");
+            var match = matchObj.AddComponent<MatchManager>();
+
+            var enemyObj = new GameObject("TestEnemy");
+            enemyObj.AddComponent<Rigidbody2D>();
+            enemyObj.AddComponent<BoxCollider2D>();
+            var enemy = enemyObj.AddComponent<BasicEnemy>();
+
+            match.Player = _player;
+            match.Enemy = enemy;
+            match.SubscribeEvents();
+
+            // Defeat player
+            _player.TakeDamage(new DamageContext(500, Vector2.left, 0.05f, false, null));
+
+            Assert.AreEqual(MatchState.Defeat, match.CurrentMatchState, "Player defeat must transition match to Defeat.");
+            Assert.IsFalse(_player.IsInputEnabled, "Player input must be disabled upon defeat.");
+
+            Object.DestroyImmediate(matchObj);
+            Object.DestroyImmediate(enemyObj);
+        }
+
+        /// <summary>
+        /// TEST-25-RESTART-CLEAN-INITIAL-STATE: MatchManager.RestartMatch cleanly resets player, enemy, and match state.
+        /// Repeated restarts preserve valid subscriptions without duplicate handlers.
+        /// </summary>
+        [Test]
+        public void TEST_25_RESTART_CLEAN_INITIAL_STATE()
+        {
+            var matchObj = new GameObject("TestMatch");
+            var match = matchObj.AddComponent<MatchManager>();
+
+            var enemyObj = new GameObject("TestEnemy");
+            enemyObj.AddComponent<Rigidbody2D>();
+            enemyObj.AddComponent<BoxCollider2D>();
+            var enemy = enemyObj.AddComponent<BasicEnemy>();
+
+            match.Player = _player;
+            match.Enemy = enemy;
+            match.PlayerSpawnPoint = new Vector3(-3f, 1f, 0f);
+            match.SubscribeEvents();
+
+            // End the round
+            enemy.TakeDamage(new DamageContext(500, Vector2.right, 0.05f, false, _playerObject));
+            Assert.AreEqual(MatchState.Victory, match.CurrentMatchState);
+
+            // Execute repeated restarts (3 cycles)
+            for (int i = 0; i < 3; i++)
+            {
+                match.RestartMatch();
+
+                Assert.AreEqual(MatchState.InProgress, match.CurrentMatchState, "Restart must reset match state to InProgress.");
+                Assert.AreEqual(_player.MaxHealth, _player.CurrentHealth, "Player health must reset to MaxHealth.");
+                Assert.AreEqual(50f, _energy.CurrentEnergy, "Player energy must reset to default (50).");
+                Assert.IsTrue(_player.IsInputEnabled, "Player input must be re-enabled.");
+                Assert.IsFalse(_player.IsDefeated, "Player IsDefeated must be false.");
+                Assert.AreEqual(new Vector3(-3f, 1f, 0f), _playerObject.transform.position, "Player position must reset to spawn point.");
+
+                Assert.AreEqual(enemy.MaxHealth, enemy.CurrentHealth, "Enemy health must reset to MaxHealth.");
+                Assert.IsFalse(enemy.IsDefeated, "Enemy IsDefeated must be false.");
+                Assert.AreEqual(EnemyState.Idle, enemy.CurrentState, "Enemy state must reset to Idle.");
+            }
+
+            Object.DestroyImmediate(matchObj);
+            Object.DestroyImmediate(enemyObj);
+        }
+
+        /// <summary>
+        /// TEST-26-COMBAT-INPUT-DISABLED-AFTER-ROUND-END: When input is disabled, player movement, jump, and attack inputs are ignored.
+        /// </summary>
+        [Test]
+        public void TEST_26_COMBAT_INPUT_DISABLED_AFTER_ROUND_END()
+        {
+            _locomotion.SetGrounded(true);
+            _player.SetInputEnabled(false);
+
+            _mockInput.SetMoveVector(new Vector2(1f, 0f));
+            _mockInput.TriggerJump();
+            _mockInput.TriggerAttack();
+
+            // Force update
+            _playerObject.GetComponent<PlayerCharacter>().SendMessage("Update", SendMessageOptions.DontRequireReceiver);
+
+            var rb = _playerObject.GetComponent<Rigidbody2D>();
+            Assert.AreEqual(0f, rb.linearVelocity.x, 0.01f, "Player must not move when input is disabled.");
+            Assert.AreEqual(0f, rb.linearVelocity.y, 0.01f, "Player must not jump when input is disabled.");
+            Assert.IsFalse(_combat.IsAttacking, "Player must not attack when input is disabled.");
         }
     }
 }

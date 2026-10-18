@@ -20,6 +20,11 @@ namespace AetherSurge.Player
         private IInputService _input;
         private int _currentHealth;
         private bool _isCharging;
+        private bool _inputEnabled = true;
+        private bool _isDefeated;
+
+        public event System.Action<int, int> OnHealthChanged;
+        public event System.Action OnDefeated;
 
         public PlayerLocomotion Locomotion
         {
@@ -49,6 +54,16 @@ namespace AetherSurge.Player
         public bool IsCharging
         {
             get { return _isCharging; }
+        }
+
+        public bool IsDefeated
+        {
+            get { return _isDefeated; }
+        }
+
+        public bool IsInputEnabled
+        {
+            get { return _inputEnabled; }
         }
 
         public bool IsInvulnerable
@@ -113,11 +128,17 @@ namespace AetherSurge.Player
 
         private void Update()
         {
-            if (_input == null) return;
-
             float dt = Time.deltaTime;
             _locomotion.UpdateLocomotion(dt);
             _combat.UpdateStateMachine(dt);
+
+            if (!_inputEnabled || _isDefeated)
+            {
+                _locomotion.Move(0f);
+                return;
+            }
+
+            if (_input == null) return;
 
             if (_input.ChargeHeld && _locomotion.IsGrounded && !_combat.IsAttacking && !_locomotion.IsDodging)
             {
@@ -222,13 +243,61 @@ namespace AetherSurge.Player
 
         public bool TakeDamage(DamageContext context)
         {
-            if (IsInvulnerable)
+            if (IsInvulnerable || _isDefeated)
             {
                 return false;
             }
 
             _currentHealth = Mathf.Max(0, _currentHealth - context.Damage);
+            if (OnHealthChanged != null) OnHealthChanged.Invoke(_currentHealth, _maxHealth);
+
+            if (_currentHealth <= 0 && !_isDefeated)
+            {
+                _isDefeated = true;
+                _locomotion.Move(0f);
+                if (OnDefeated != null) OnDefeated.Invoke();
+            }
+
             return true;
+        }
+
+        public void SetInputEnabled(bool enabled)
+        {
+            _inputEnabled = enabled;
+            if (!_inputEnabled && _locomotion != null)
+            {
+                _locomotion.Move(0f);
+            }
+        }
+
+        public void ResetPlayer(Vector3 spawnPosition)
+        {
+            _currentHealth = _maxHealth;
+            _isDefeated = false;
+            _inputEnabled = true;
+            _isCharging = false;
+            transform.position = spawnPosition;
+
+            var rb = GetComponent<Rigidbody2D>();
+            if (rb != null) rb.linearVelocity = Vector2.zero;
+
+            if (_locomotion != null)
+            {
+                _locomotion.Move(0f);
+                _locomotion.SetGrounded(true);
+            }
+
+            if (_combat != null)
+            {
+                _combat.ResetCombo();
+            }
+
+            if (_energy != null)
+            {
+                _energy.Initialize(50f, 100f);
+            }
+
+            if (OnHealthChanged != null) OnHealthChanged.Invoke(_currentHealth, _maxHealth);
         }
 
         private void OnDrawGizmosSelected()

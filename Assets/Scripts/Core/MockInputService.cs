@@ -13,6 +13,12 @@ namespace AetherSurge.Core
         public bool ChargeHeld { get; set; }
         public bool PauseTriggered { get; set; }
 
+        public void SetMoveVector(Vector2 move) { MoveVector = move; }
+        public void TriggerJump() { JumpTriggered = true; }
+        public void TriggerAttack() { AttackTriggered = true; }
+        public void TriggerDash() { DashTriggered = true; }
+        public void TriggerSkill() { SkillTriggered = true; }
+
         public void ResetInputs()
         {
             MoveVector = Vector2.zero;
