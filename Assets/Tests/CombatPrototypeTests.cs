@@ -301,6 +301,112 @@ namespace AetherSurge.Tests
 
             Object.DestroyImmediate(canvasObj);
         }
+
+        /// <summary>
+        /// TEST-13-GROUND-DETECTION-PHYSICS: Physics-based ground check accurately detects ground surface,
+        /// transitions to airborne when falling off ledge, and ignores wall/enemy colliders.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TEST_13_GROUND_DETECTION_PHYSICS()
+        {
+            var groundObj = new GameObject("TestGround");
+            groundObj.layer = 8; // Ground layer
+            groundObj.transform.position = new Vector3(0f, -0.5f, 0f);
+            var groundCol = groundObj.AddComponent<BoxCollider2D>();
+            groundCol.size = new Vector2(10f, 1f);
+
+            var playerCol = _playerObject.AddComponent<BoxCollider2D>();
+            playerCol.size = new Vector2(1.0f, 1.8f);
+            playerCol.offset = new Vector2(0f, 0.9f);
+            _playerObject.transform.position = new Vector3(0f, 0f, 0f);
+
+            _locomotion.GroundLayer = 1 << 8;
+            _locomotion.EnableAutoGroundDetection(true);
+
+            Physics2D.SyncTransforms();
+            yield return new WaitForFixedUpdate();
+
+            Assert.IsTrue(_locomotion.IsGrounded, "Player must automatically become grounded when touching ground collider.");
+            Assert.IsTrue(_locomotion.CanAirDash, "Landing must restore air-dash allowance.");
+
+            // Jump clears grounded
+            _locomotion.TryJump(true, true);
+            yield return new WaitForFixedUpdate();
+            Assert.IsFalse(_locomotion.IsGrounded, "Jumping must clear grounded state.");
+
+            // Mid-air against wall (Layer 8) must NOT be grounded
+            _playerObject.transform.position = new Vector3(50f, 20f, 0f);
+            var rb = _playerObject.GetComponent<Rigidbody2D>();
+            rb.linearVelocity = Vector2.zero;
+            rb.gravityScale = 0f;
+
+            var wallObj = new GameObject("TestWall");
+            wallObj.layer = 8;
+            wallObj.transform.position = new Vector3(50.55f, 20f, 0f);
+            var wallCol = wallObj.AddComponent<BoxCollider2D>();
+            wallCol.size = new Vector2(1f, 5f);
+
+            Physics2D.SyncTransforms();
+            yield return new WaitForFixedUpdate();
+            Assert.IsFalse(_locomotion.IsGrounded, "Side collision with wall must NOT mark player as grounded.");
+
+            // Touching enemy dummy (Layer 7) must NOT be grounded
+            var dummyObj = new GameObject("TestEnemyDummy");
+            dummyObj.layer = 7;
+            dummyObj.transform.position = new Vector3(50f, 18.5f, 0f);
+            var dummyCol = dummyObj.AddComponent<BoxCollider2D>();
+            dummyCol.size = new Vector2(2f, 2f);
+
+            Physics2D.SyncTransforms();
+            yield return new WaitForFixedUpdate();
+            Assert.IsFalse(_locomotion.IsGrounded, "Contact with enemy dummy must NOT mark player as grounded.");
+
+            Object.DestroyImmediate(groundObj);
+            Object.DestroyImmediate(wallObj);
+            Object.DestroyImmediate(dummyObj);
+        }
+
+        /// <summary>
+        /// TEST-14-TARGET-LAYER-FILTERING: Attacks only damage targets on the configured TargetLayer (Enemy),
+        /// ignoring own collider, ground, and other objects.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TEST_14_TARGET_LAYER_FILTERING()
+        {
+            _playerObject.transform.position = Vector3.zero;
+            _player.TargetLayer = 1 << 7; // Enemy layer only
+
+            var enemyObj = new GameObject("EnemyDummy");
+            enemyObj.layer = 7;
+            enemyObj.transform.position = new Vector3(1.0f, 0.5f, 0f);
+            enemyObj.AddComponent<Rigidbody2D>();
+            var enemyCol = enemyObj.AddComponent<BoxCollider2D>();
+            enemyCol.size = new Vector2(1.5f, 2.0f);
+            var dummy = enemyObj.AddComponent<TrainingDummy>();
+
+            var neutralObj = new GameObject("NeutralDummy");
+            neutralObj.layer = 0;
+            neutralObj.transform.position = new Vector3(1.0f, 0.5f, 0f);
+            neutralObj.AddComponent<Rigidbody2D>();
+            var neutralCol = neutralObj.AddComponent<BoxCollider2D>();
+            neutralCol.size = new Vector2(1.5f, 2.0f);
+            var neutralDummy = neutralObj.AddComponent<TrainingDummy>();
+
+            Physics2D.SyncTransforms();
+
+            int initialEnemyHp = dummy.CurrentHealth;
+            int initialNeutralHp = neutralDummy.CurrentHealth;
+
+            _combat.TryAttack();
+
+            yield return null;
+
+            Assert.Less(dummy.CurrentHealth, initialEnemyHp, "Enemy on TargetLayer must take damage from attack.");
+            Assert.AreEqual(initialNeutralHp, neutralDummy.CurrentHealth, "Object on non-target layer must NOT take damage.");
+
+            Object.DestroyImmediate(enemyObj);
+            Object.DestroyImmediate(neutralObj);
+        }
     }
 }
 

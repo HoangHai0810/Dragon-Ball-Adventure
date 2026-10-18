@@ -56,6 +56,12 @@ namespace AetherSurge.Player
             get { return _locomotion != null && _locomotion.IsInvulnerable; }
         }
 
+        public LayerMask TargetLayer
+        {
+            get { return _targetLayer; }
+            set { _targetLayer = value; }
+        }
+
         public Transform TransformRef
         {
             get { return transform; }
@@ -67,6 +73,15 @@ namespace AetherSurge.Player
             _combat = GetComponent<CombatStateMachine>();
             _energy = GetComponent<EnergyController>();
             _currentHealth = _maxHealth;
+
+            if (_targetLayer.value == 0)
+            {
+                int enemyLayer = LayerMask.NameToLayer("Enemy");
+                if (enemyLayer != -1)
+                {
+                    _targetLayer = 1 << enemyLayer;
+                }
+            }
 
             _combat.OnAttackExecuted += HandleAttackExecuted;
         }

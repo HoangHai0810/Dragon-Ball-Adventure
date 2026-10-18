@@ -41,5 +41,5 @@ Desktop.ini
 
 # Build and test logs
 *.log
-test-results.xml
+test-results*.xml
 

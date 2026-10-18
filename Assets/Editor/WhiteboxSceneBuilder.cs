@@ -15,20 +15,26 @@ namespace AetherSurge.Editor
 {
     public static class WhiteboxSceneBuilder
     {
+        // Layer indices matching TagManager.asset
+        private const int LAYER_PLAYER = 6;
+        private const int LAYER_ENEMY = 7;
+        private const int LAYER_GROUND = 8;
+
         [MenuItem("Aether Surge/Generate Whitebox Arena Scene")]
         public static void BuildArenaScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            // 1. Camera
+            // 1. Camera with follow
             var camObj = new GameObject("Main Camera");
             camObj.tag = "MainCamera";
             var cam = camObj.AddComponent<Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 6.0f;
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.12f, 0.12f, 0.16f); // Deep dark slate
+            cam.backgroundColor = new Color(0.12f, 0.12f, 0.16f);
             camObj.transform.position = new Vector3(0f, 2.5f, -10f);
+            var cameraFollow = camObj.AddComponent<CameraFollow>();
 
             // 2. EventSystem
             var eventSystemObj = new GameObject("EventSystem");
@@ -47,40 +53,48 @@ namespace AetherSurge.Editor
             var hitStopObj = new GameObject("HitStopManager");
             hitStopObj.AddComponent<HitStopManager>();
 
-            // 5. Arena Environment
+            // 5. Arena Environment (on Ground layer)
             var arenaRoot = new GameObject("Arena");
 
             // Ground
             var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
             ground.name = "Ground";
+            ground.layer = LAYER_GROUND;
             ground.transform.SetParent(arenaRoot.transform);
             ground.transform.position = new Vector3(0f, -0.5f, 0f);
             ground.transform.localScale = new Vector3(30f, 1f, 2f);
             Object.DestroyImmediate(ground.GetComponent<BoxCollider>());
             var groundCol = ground.AddComponent<BoxCollider2D>();
             groundCol.size = new Vector2(30f, 1f);
+            var groundMat = ground.GetComponent<MeshRenderer>();
+            if (groundMat != null && groundMat.sharedMaterial != null)
+            {
+                groundMat.sharedMaterial.color = new Color(0.25f, 0.25f, 0.3f);
+            }
 
-            // Left Wall
+            // Left Wall (on Ground layer — static geometry)
             var leftWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
             leftWall.name = "LeftWall";
+            leftWall.layer = LAYER_GROUND;
             leftWall.transform.SetParent(arenaRoot.transform);
             leftWall.transform.position = new Vector3(-15f, 5f, 0f);
             leftWall.transform.localScale = new Vector3(1f, 12f, 2f);
             Object.DestroyImmediate(leftWall.GetComponent<BoxCollider>());
             leftWall.AddComponent<BoxCollider2D>();
 
-            // Right Wall
+            // Right Wall (on Ground layer)
             var rightWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
             rightWall.name = "RightWall";
+            rightWall.layer = LAYER_GROUND;
             rightWall.transform.SetParent(arenaRoot.transform);
             rightWall.transform.position = new Vector3(15f, 5f, 0f);
             rightWall.transform.localScale = new Vector3(1f, 12f, 2f);
             Object.DestroyImmediate(rightWall.GetComponent<BoxCollider>());
             rightWall.AddComponent<BoxCollider2D>();
 
-            // 6. Training Dummy
+            // 6. Training Dummy (on Enemy layer)
             var dummyObj = new GameObject("TrainingDummy");
-            dummyObj.layer = LayerMask.NameToLayer("Default");
+            dummyObj.layer = LAYER_ENEMY;
             dummyObj.transform.position = new Vector3(3.5f, 1f, 0f);
 
             var dummyRb = dummyObj.AddComponent<Rigidbody2D>();
@@ -93,6 +107,7 @@ namespace AetherSurge.Editor
 
             var dummyVisual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             dummyVisual.name = "Visual";
+            dummyVisual.layer = LAYER_ENEMY;
             dummyVisual.transform.SetParent(dummyObj.transform);
             dummyVisual.transform.localPosition = Vector3.zero;
             dummyVisual.transform.localScale = new Vector3(1.2f, 1.0f, 1.0f);
@@ -105,9 +120,9 @@ namespace AetherSurge.Editor
 
             var dummyComp = dummyObj.AddComponent<TrainingDummy>();
 
-            // 7. Player
+            // 7. Player (on Player layer)
             var playerObj = new GameObject("Player");
-            playerObj.layer = LayerMask.NameToLayer("Default");
+            playerObj.layer = LAYER_PLAYER;
             playerObj.transform.position = new Vector3(-3.0f, 1f, 0f);
 
             var playerRb = playerObj.AddComponent<Rigidbody2D>();
@@ -120,6 +135,7 @@ namespace AetherSurge.Editor
 
             var playerVisual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             playerVisual.name = "Visual";
+            playerVisual.layer = LAYER_PLAYER;
             playerVisual.transform.SetParent(playerObj.transform);
             playerVisual.transform.localPosition = Vector3.zero;
             playerVisual.transform.localScale = new Vector3(1.0f, 0.9f, 1.0f);
@@ -130,19 +146,27 @@ namespace AetherSurge.Editor
                 playerMat.sharedMaterial.color = new Color(0.2f, 0.55f, 0.95f);
             }
 
-            playerObj.AddComponent<PlayerLocomotion>();
+            var locomotion = playerObj.AddComponent<PlayerLocomotion>();
+            locomotion.GroundLayer = 1 << LAYER_GROUND; // Only detect Ground layer
+
             playerObj.AddComponent<CombatStateMachine>();
             playerObj.AddComponent<EnergyController>();
             var playerChar = playerObj.AddComponent<PlayerCharacter>();
 
-            // Input Services (Standalone + Mobile Touch + Composite)
+            // Set target layer mask to Enemy layer only (no self-hit, no ground hit)
+            playerChar.TargetLayer = 1 << LAYER_ENEMY;
+
+            // Input services
             var standaloneInput = playerObj.AddComponent<StandaloneInputService>();
             var mobileInput = playerObj.AddComponent<MobileTouchInputService>();
             var compositeInput = playerObj.AddComponent<CompositeInputService>();
             compositeInput.Initialize(standaloneInput, mobileInput);
             playerChar.SetInputService(compositeInput);
 
-            // 8. UI Canvas & Dynamic Safe Area (Target: iPhone 16 Pro Max 2796x1290)
+            // Camera follows player
+            cameraFollow.SetTarget(playerObj.transform);
+
+            // 8. UI Canvas
             var canvasObj = new GameObject("Canvas");
             var canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -162,10 +186,10 @@ namespace AetherSurge.Editor
             safeRect.offsetMax = Vector2.zero;
             safeAreaObj.AddComponent<SafeAreaFitter>();
 
-            // HUD Controller
+            // HUD
             var hudComp = canvasObj.AddComponent<CombatHUD>();
 
-            // 8.1 Mobile Controls UI
+            // 8.1 Mobile Controls (with platform visibility controller)
             var mobileUIObj = new GameObject("MobileControlsRoot");
             mobileUIObj.transform.SetParent(safeAreaObj.transform, false);
             var mobileUIRect = mobileUIObj.AddComponent<RectTransform>();
@@ -174,6 +198,7 @@ namespace AetherSurge.Editor
             mobileUIRect.offsetMin = Vector2.zero;
             mobileUIRect.offsetMax = Vector2.zero;
             var mobileControlsUI = mobileUIObj.AddComponent<MobileControlsUI>();
+            mobileUIObj.AddComponent<PlatformVisibility>();
 
             // Virtual Joystick (Left)
             var joystickObj = new GameObject("VirtualJoystick");
@@ -204,7 +229,7 @@ namespace AetherSurge.Editor
 
             mobileControlsUI.BindControls(mobileInput, virtualJoystick, atkBtn, jumpBtn, dashBtn, skillBtn, chargeBtn);
 
-            // 8.2 Top HUD Elements
+            // 8.2 Top HUD: Reset button + FPS counter
             var resetBtnObj = new GameObject("Btn_ResetArena");
             resetBtnObj.transform.SetParent(safeAreaObj.transform, false);
             var resetRect = resetBtnObj.AddComponent<RectTransform>();
@@ -214,7 +239,7 @@ namespace AetherSurge.Editor
             resetRect.sizeDelta = new Vector2(220f, 60f);
             var resetImg = resetBtnObj.AddComponent<Image>();
             resetImg.color = new Color(0.3f, 0.3f, 0.35f, 0.85f);
-            var resetBtn = resetBtnObj.AddComponent<Button>();
+            resetBtnObj.AddComponent<Button>();
 
             var resetTextObj = new GameObject("Text");
             resetTextObj.transform.SetParent(resetBtnObj.transform, false);
@@ -252,7 +277,8 @@ namespace AetherSurge.Editor
             string scenePath = "Assets/Scenes/WhiteboxArena.unity";
             EditorSceneManager.SaveScene(scene, scenePath);
             AssetDatabase.Refresh();
-            Debug.LogFormat("[WhiteboxSceneBuilder] Successfully generated Whitebox Arena with mobile touch controls at: {0}", scenePath);
+            Debug.LogFormat("[WhiteboxSceneBuilder] Successfully generated Whitebox Arena at: {0}", scenePath);
+            Debug.LogFormat("[WhiteboxSceneBuilder] Layers: Player={0}, Enemy={1}, Ground={2}", LAYER_PLAYER, LAYER_ENEMY, LAYER_GROUND);
         }
 
         private static VirtualTouchButton CreateTouchButton(string name, string label, Vector2 anchor, Vector2 anchoredPos, Vector2 size, Transform parent, Color color)
