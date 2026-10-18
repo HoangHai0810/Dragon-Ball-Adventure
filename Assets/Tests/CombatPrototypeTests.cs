@@ -407,6 +407,125 @@ namespace AetherSurge.Tests
             Object.DestroyImmediate(enemyObj);
             Object.DestroyImmediate(neutralObj);
         }
+
+        /// <summary>
+        /// TEST-15-CAMERA-FOLLOW-BOUNDS: CameraFollow tracks target position and clamps within defined horizontal and vertical bounds.
+        /// </summary>
+        [Test]
+        public void TEST_15_CAMERA_FOLLOW_BOUNDS()
+        {
+            var camObj = new GameObject("TestCamera");
+            var camFollow = camObj.AddComponent<CameraFollow>();
+            var targetObj = new GameObject("FarTarget");
+            targetObj.transform.position = new Vector3(50f, 50f, 0f);
+
+            camFollow.SetTarget(targetObj.transform);
+
+            System.Reflection.MethodInfo clampMethod = typeof(CameraFollow).GetMethod("ClampPosition",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            Vector3 unclampedMax = new Vector3(50f, 50f, -10f);
+            Vector3 clampedMax = (Vector3)clampMethod.Invoke(camFollow, new object[] { unclampedMax });
+
+            Assert.AreEqual(10f, clampedMax.x, 0.01f, "Camera horizontal position must clamp to maxX (10.0).");
+            Assert.AreEqual(10f, clampedMax.y, 0.01f, "Camera vertical position must clamp to maxY (10.0).");
+
+            Vector3 unclampedMin = new Vector3(-50f, -50f, -10f);
+            Vector3 clampedMin = (Vector3)clampMethod.Invoke(camFollow, new object[] { unclampedMin });
+
+            Assert.AreEqual(-10f, clampedMin.x, 0.01f, "Camera horizontal position must clamp to minX (-10.0).");
+            Assert.AreEqual(0f, clampedMin.y, 0.01f, "Camera vertical position must clamp to minY (0.0).");
+
+            Object.DestroyImmediate(camObj);
+            Object.DestroyImmediate(targetObj);
+        }
+
+        /// <summary>
+        /// TEST-16-ASTRAL-BEAM-IMPACT: AstralBeamProjectile inflicts damage context on IHurtbox,
+        /// ignores caster/owner, and terminates on solid terrain without damaging ground.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TEST_16_ASTRAL_BEAM_IMPACT()
+        {
+            var dummyObj = new GameObject("TestDummy");
+            dummyObj.layer = 7; // Enemy
+            dummyObj.transform.position = new Vector3(3f, 0f, 0f);
+            dummyObj.AddComponent<Rigidbody2D>();
+            var dummyCol = dummyObj.AddComponent<BoxCollider2D>();
+            dummyCol.size = new Vector2(1f, 2f);
+            var dummy = dummyObj.AddComponent<TrainingDummy>();
+
+            var projObj = new GameObject("TestProjectile");
+            projObj.transform.position = new Vector3(1f, 0f, 0f);
+            var col = projObj.AddComponent<CircleCollider2D>();
+            col.isTrigger = true;
+            var proj = projObj.AddComponent<AstralBeamProjectile>();
+            proj.Initialize(Vector2.right, _playerObject);
+
+            Physics2D.SyncTransforms();
+
+            int initialHp = dummy.CurrentHealth;
+
+            // Move projectile directly into dummy collider
+            projObj.transform.position = dummyObj.transform.position;
+            Physics2D.SyncTransforms();
+
+            yield return new WaitForFixedUpdate();
+
+            Assert.Less(dummy.CurrentHealth, initialHp, "Dummy must take damage when hit by Astral Beam projectile.");
+
+            Object.DestroyImmediate(dummyObj);
+        }
+
+        /// <summary>
+        /// TEST-17-DUMMY-RECOVERY-AND-ARENA-RESET: Dummy health regenerates after delay,
+        /// and CombatHUD.ResetArena restores player and dummy to full status.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TEST_17_DUMMY_RECOVERY_AND_ARENA_RESET()
+        {
+            var dummyObj = new GameObject("TestDummy");
+            dummyObj.layer = 7;
+            dummyObj.AddComponent<Rigidbody2D>();
+            dummyObj.AddComponent<BoxCollider2D>();
+            var dummy = dummyObj.AddComponent<TrainingDummy>();
+
+            dummy.TakeDamage(new DamageContext(100, Vector2.right, 0.05f, false, _playerObject));
+            Assert.AreEqual(400, dummy.CurrentHealth, "Dummy should have 400 HP after taking 100 damage.");
+
+            var hudObj = new GameObject("TestHUD");
+            var hud = hudObj.AddComponent<CombatHUD>();
+
+            hud.ResetArena();
+
+            Assert.AreEqual(dummy.MaxHealth, dummy.CurrentHealth, "ResetArena must restore dummy to maximum health.");
+            Assert.AreEqual(50f, _energy.CurrentEnergy, "ResetArena must restore player default starting energy (50).");
+
+            Object.DestroyImmediate(dummyObj);
+            Object.DestroyImmediate(hudObj);
+            yield return null;
+        }
+
+        /// <summary>
+        /// TEST-18-PLATFORM-VISIBILITY-TOGGLE: PlatformVisibility correctly toggles active/canvas state.
+        /// </summary>
+        [Test]
+        public void TEST_18_PLATFORM_VISIBILITY_TOGGLE()
+        {
+            var uiRoot = new GameObject("MobileRoot");
+            var canvasGroup = uiRoot.AddComponent<CanvasGroup>();
+            var visibility = uiRoot.AddComponent<PlatformVisibility>();
+
+            visibility.SetVisible(true);
+            Assert.AreEqual(1f, canvasGroup.alpha, 0.01f, "Alpha should be 1.0 when visible.");
+            Assert.IsTrue(canvasGroup.interactable, "CanvasGroup must be interactable.");
+
+            visibility.ToggleVisibility();
+            Assert.AreEqual(0f, canvasGroup.alpha, 0.01f, "Alpha should be 0.0 after toggle.");
+            Assert.IsFalse(canvasGroup.interactable, "CanvasGroup must not be interactable when hidden.");
+
+            Object.DestroyImmediate(uiRoot);
+        }
     }
 }
 

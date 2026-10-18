@@ -46,10 +46,42 @@ namespace AetherSurge.UI
 #endif
             }
 
+            if (_resetArenaButton == null)
+            {
+                var resetObj = GameObject.Find("Btn_ResetArena");
+                if (resetObj != null) _resetArenaButton = resetObj.GetComponent<Button>();
+            }
+
+            if (_fpsText == null)
+            {
+                var fpsObj = GameObject.Find("Text_FPS");
+                if (fpsObj != null) _fpsText = fpsObj.GetComponent<TMP_Text>();
+            }
+
+            if (_energyText == null)
+            {
+                var energyObj = GameObject.Find("Text_Energy");
+                if (energyObj != null) _energyText = energyObj.GetComponent<TMP_Text>();
+            }
+
+            if (_dummyHpText == null)
+            {
+                var dummyHpObj = GameObject.Find("Text_DummyHP");
+                if (dummyHpObj != null) _dummyHpText = dummyHpObj.GetComponent<TMP_Text>();
+            }
+
             if (_resetArenaButton != null)
             {
                 _resetArenaButton.onClick.AddListener(ResetArena);
             }
+        }
+
+        public void BindControls(Button resetButton, TMP_Text fpsText, TMP_Text energyText = null, TMP_Text dummyHpText = null)
+        {
+            _resetArenaButton = resetButton;
+            _fpsText = fpsText;
+            _energyText = energyText;
+            _dummyHpText = dummyHpText;
         }
 
         private void Update()
@@ -98,6 +130,23 @@ namespace AetherSurge.UI
 
         public void ResetArena()
         {
+            if (_dummy == null)
+            {
+#if UNITY_2023_1_OR_NEWER
+                _dummy = Object.FindFirstObjectByType<TrainingDummy>();
+#else
+                _dummy = Object.FindObjectOfType<TrainingDummy>();
+#endif
+            }
+            if (_player == null)
+            {
+#if UNITY_2023_1_OR_NEWER
+                _player = Object.FindFirstObjectByType<PlayerCharacter>();
+#else
+                _player = Object.FindObjectOfType<PlayerCharacter>();
+#endif
+            }
+
             if (_dummy != null) _dummy.ResetDummy();
             if (_player != null)
             {

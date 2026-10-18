@@ -229,7 +229,7 @@ namespace AetherSurge.Editor
 
             mobileControlsUI.BindControls(mobileInput, virtualJoystick, atkBtn, jumpBtn, dashBtn, skillBtn, chargeBtn);
 
-            // 8.2 Top HUD: Reset button + FPS counter
+            // Top HUD: Reset button
             var resetBtnObj = new GameObject("Btn_ResetArena");
             resetBtnObj.transform.SetParent(safeAreaObj.transform, false);
             var resetRect = resetBtnObj.AddComponent<RectTransform>();
@@ -239,7 +239,7 @@ namespace AetherSurge.Editor
             resetRect.sizeDelta = new Vector2(220f, 60f);
             var resetImg = resetBtnObj.AddComponent<Image>();
             resetImg.color = new Color(0.3f, 0.3f, 0.35f, 0.85f);
-            resetBtnObj.AddComponent<Button>();
+            var resetBtn = resetBtnObj.AddComponent<Button>();
 
             var resetTextObj = new GameObject("Text");
             resetTextObj.transform.SetParent(resetBtnObj.transform, false);
@@ -254,19 +254,50 @@ namespace AetherSurge.Editor
             resetTextRect.offsetMin = Vector2.zero;
             resetTextRect.offsetMax = Vector2.zero;
 
-            // FPS Counter
+            // Player Energy Display (Top Left)
+            var energyObj = new GameObject("Text_Energy");
+            energyObj.transform.SetParent(safeAreaObj.transform, false);
+            var energyRect = energyObj.AddComponent<RectTransform>();
+            energyRect.anchorMin = new Vector2(0f, 1f);
+            energyRect.anchorMax = new Vector2(0f, 1f);
+            energyRect.anchoredPosition = new Vector2(160f, -60f);
+            energyRect.sizeDelta = new Vector2(260f, 50f);
+            var energyText = energyObj.AddComponent<TextMeshProUGUI>();
+            energyText.text = "Energy: 50 / 100";
+            energyText.fontSize = 26;
+            energyText.alignment = TextAlignmentOptions.Left;
+            energyText.color = new Color(0.2f, 0.85f, 1.0f);
+
+            // Dummy HP Display (Top Right, next to FPS)
+            var dummyHpObj = new GameObject("Text_DummyHP");
+            dummyHpObj.transform.SetParent(safeAreaObj.transform, false);
+            var dummyHpRect = dummyHpObj.AddComponent<RectTransform>();
+            dummyHpRect.anchorMin = new Vector2(1f, 1f);
+            dummyHpRect.anchorMax = new Vector2(1f, 1f);
+            dummyHpRect.anchoredPosition = new Vector2(-360f, -60f);
+            dummyHpRect.sizeDelta = new Vector2(280f, 50f);
+            var dummyHpText = dummyHpObj.AddComponent<TextMeshProUGUI>();
+            dummyHpText.text = "Dummy HP: 500 / 500";
+            dummyHpText.fontSize = 26;
+            dummyHpText.alignment = TextAlignmentOptions.Right;
+            dummyHpText.color = new Color(1.0f, 0.85f, 0.2f);
+
+            // FPS Counter (Top Right)
             var fpsObj = new GameObject("Text_FPS");
             fpsObj.transform.SetParent(safeAreaObj.transform, false);
             var fpsRect = fpsObj.AddComponent<RectTransform>();
             fpsRect.anchorMin = new Vector2(1f, 1f);
             fpsRect.anchorMax = new Vector2(1f, 1f);
-            fpsRect.anchoredPosition = new Vector2(-120f, -60f);
-            fpsRect.sizeDelta = new Vector2(200f, 50f);
+            fpsRect.anchoredPosition = new Vector2(-100f, -60f);
+            fpsRect.sizeDelta = new Vector2(160f, 50f);
             var fpsText = fpsObj.AddComponent<TextMeshProUGUI>();
             fpsText.text = "FPS: --";
-            fpsText.fontSize = 28;
+            fpsText.fontSize = 26;
             fpsText.alignment = TextAlignmentOptions.Right;
             fpsText.color = Color.green;
+
+            // Wire HUD
+            hudComp.BindControls(resetBtn, fpsText, energyText, dummyHpText);
 
             // Save Scene
             if (!AssetDatabase.IsValidFolder("Assets/Scenes"))
